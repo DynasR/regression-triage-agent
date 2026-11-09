@@ -104,6 +104,9 @@ async def test_a_summary_with_an_invented_number_is_replaced(bank_db, tmp_path):
     state, _ = await triage(bank_db, tmp_path, 5, judge)
     assert state["summary"]["accepted"] is False and "12.5" in state["summary"]["unknown_numbers"]
     assert "12.5" not in state["memo"]
+    # The rejected text is kept for audit: in the state, and in the trace of the report node.
+    assert state["summary"]["rejected_text"] == judge.summary
+    assert trace.read(tmp_path / "trace.jsonl")[-1]["output"]["summary"]["rejected_text"] == judge.summary
 
 
 async def test_a_summary_using_only_given_numbers_is_kept(bank_db, tmp_path):

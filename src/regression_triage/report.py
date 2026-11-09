@@ -51,12 +51,14 @@ def facts(state: dict) -> str:
 
 def check_summary(text: str | None, given: str) -> dict:
     if not text:
-        return {"text": FALLBACK, "accepted": False, "unknown_numbers": [], "why": "no summary from the model"}
+        return {"text": FALLBACK, "accepted": False, "unknown_numbers": [], "why": "no summary from the model",
+                "rejected_text": None}
     unknown = sorted(numbers_in(text) - numbers_in(given))
     if unknown:
         return {"text": FALLBACK, "accepted": False, "unknown_numbers": unknown,
-                "why": "the summary contained numbers that are not in the facts"}
-    return {"text": text, "accepted": True, "unknown_numbers": [], "why": None}
+                "why": "the summary contained numbers that are not in the facts",
+                "rejected_text": text}   # kept in the state and the trace, never in the memo
+    return {"text": text, "accepted": True, "unknown_numbers": [], "why": None, "rejected_text": None}
 
 
 FALLBACK = "The generated summary was not used. The tables below are the decision."
