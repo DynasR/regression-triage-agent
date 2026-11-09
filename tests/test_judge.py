@@ -58,6 +58,13 @@ async def test_a_failure_is_returned_as_an_error_never_as_a_category(client):
 def test_the_prompt_carries_the_numbers_computed_by_the_code_and_the_evidence():
     text = gap_prompt(GAP, EVIDENCE, CAMPAIGN)
     assert "150 times the tolerance" in text and "RN-1 [all products]" in text and "PRC-1 [open]" in text
+    assert "size: LARGE" in text
+
+
+@pytest.mark.parametrize("ratio, size", [(1.5, "SMALL"), (4.99, "SMALL"), (5.0, "LARGE"), (80.0, "LARGE")])
+def test_the_size_is_compared_by_the_code_not_the_model(ratio, size):
+    # Same threshold as the check that accepts noise (risk.NOISE_MAX_RATIO).
+    assert f"size: {size}" in gap_prompt({**GAP, "ratio": ratio}, EVIDENCE, CAMPAIGN)
 
 
 def test_a_failed_value_is_said_so():

@@ -19,6 +19,8 @@ from dataclasses import dataclass, field
 
 from pydantic import BaseModel, ValidationError
 
+from .risk import NOISE_MAX_RATIO
+
 DEFAULT_MODEL = "qwen3.5:9b"
 SEED = 42
 
@@ -36,8 +38,8 @@ You triage one gap found by a non-regression campaign of a bank's pricing librar
 The candidate release priced a trade differently from the reference release, beyond the tolerance.
 
 Choose exactly one category:
-- numerical_noise: the gap is barely above its tolerance (less than 5 times the tolerance) and no \
-release note or ticket is about it. Floating-point noise, not a change of behaviour.
+- numerical_noise: the gap is marked SMALL and no release note or ticket is about it. Floating-point \
+noise, not a change of behaviour. A gap marked LARGE is never numerical noise.
 - expected_change: a release note of the candidate release announces a change of THIS metric for \
 THIS product. Cite the release note id.
 - known_defect: an OPEN ticket describes a defect of THIS metric for THIS product. Cite the ticket id. \
@@ -85,6 +87,11 @@ def gap_prompt(gap: dict, evidence: dict, campaign: dict) -> str:
     else:
         lines.append(f"- difference: {_fmt(gap['diff'])} EUR, tolerance {_fmt(gap['tolerance'])} EUR, "
                      f"so {_fmt(gap['ratio'])} times the tolerance")
+        # The comparison is made here, by the code: the first evaluation showed the
+        # model calling 1.8 "above the threshold of 5".
+        small = gap["ratio"] < NOISE_MAX_RATIO
+        lines.append(f"- size: {'SMALL' if small else 'LARGE'} (computed: "
+                     f"{'below' if small else 'at least'} {NOISE_MAX_RATIO:g} times the tolerance)")
     lines += ["", f"Release notes of release {campaign['candidate_release']} for this product or for all products:"]
     lines += [f"- {n['id']} [{n['product_code'] or 'all products'}]: {n['text']}"
               for n in evidence["release_notes"]] or ["- none"]
