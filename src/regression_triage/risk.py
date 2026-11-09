@@ -29,6 +29,8 @@ def check_classification(raw, gap: dict, evidence: dict) -> dict:
     """Accept the model's answer for one gap only if the code can verify its justification."""
     if not isinstance(raw, dict):
         return _reject(gap, {}, "no answer from the model")
+    if "error" in raw:
+        return _reject(gap, {}, f"no answer from the model: {raw['error']}")
     category, cited = raw.get("category"), raw.get("evidence_id")
     if category not in CATEGORIES:
         return _reject(gap, raw, f"unknown category {category!r}")

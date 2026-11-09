@@ -42,6 +42,7 @@ def test_a_justified_answer_is_accepted(raw, category):
 @pytest.mark.parametrize("raw, why", [
     (None, "no answer"),
     ("numerical_noise", "no answer"),
+    ({"error": "model call failed: ConnectError"}, "no answer"),
     (answer("probably_fine"), "unknown category"),
     (answer("expected_change"), "release note"),
     (answer("expected_change", "RN-404"), "release note"),        # invented id
