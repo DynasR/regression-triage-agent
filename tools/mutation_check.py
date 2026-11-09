@@ -7,9 +7,13 @@ privilege, the memo guard, the model settings, the evaluation judge); the
 named test file must then turn red. The source file is always restored byte
 for byte, even on interruption.
 
+The CrewAI version's mutations are caught by tests_crew/, run with the
+.venv-crew interpreter (crewai cannot live in the LangGraph environment).
+
 No language model runs here: every test file uses a fake one.
 
-Usage: python tools/mutation_check.py      (a few minutes)
+Usage: python tools/mutation_check.py      (about fifteen minutes)
+       python tools/mutation_check.py --only crew
 Exit code: 0 if every mutation is caught, 1 otherwise.
 """
 import subprocess
@@ -21,6 +25,10 @@ LF, CRLF = chr(10), chr(13) + chr(10)
 CAMPAIGN, RISK, GRAPH = "src/regression_triage/campaign.py", "src/regression_triage/risk.py", "src/regression_triage/graph.py"
 GATEWAY, REPORT, JUDGE = "src/regression_triage/gateway.py", "src/regression_triage/report.py", "src/regression_triage/judge.py"
 TRACE, EVALS = "src/regression_triage/trace.py", "evals/run_evals.py"
+CREW = "src/regression_triage/crew/"
+CREW_INIT, CREW_CREW, CREW_FLOW = CREW + "__init__.py", CREW + "crew.py", CREW + "flow.py"
+CREW_LLM, CREW_TOOLS = CREW + "llm.py", CREW + "tools.py"
+CREW_TESTS = "tests_crew/"
 
 # (what is broken, file, original text, mutated text, test file that must fail)
 MUTATIONS = [
@@ -129,11 +137,72 @@ MUTATIONS = [
      "tests/test_eval_judge.py"),
     ("eval judge: a missed gap is not counted", EVALS,
      "for case, metric in set(truth) - found)", "for case, metric in set())", "tests/test_eval_judge.py"),
+    ("eval judge: a crew that failed its job is excused as the instrument", EVALS,
+     '    if result["error"]:\n', '    if result["error"] or result.get("agent_error"):\n', "tests/test_eval_judge.py"),
+    ("eval judge: the crew's raw text not measured", EVALS,
+     '\n                + json.dumps(result.get("raw_text"), sort_keys=True))', ")", "tests/test_eval_judge.py"),
+
+    # The CrewAI version: least privilege per agent and per tool.
+    ("crew privilege: the matcher also gets the gap tool", CREW_CREW,
+     '"evidence_matcher": ("evidence",)', '"evidence_matcher": ("evidence", "campaign_gaps")',
+     CREW_TESTS + "test_crew_privileges.py"),
+    ("crew privilege: a tool scope is widened", CREW_TOOLS,
+     '"evidence": frozenset({"classify_gaps"}),', '"evidence": frozenset({"classify_gaps", "compute_gaps"}),',
+     CREW_TESTS + "test_crew_privileges.py"),
+    ("crew privilege: a tool's view of the bank not checked", CREW_TOOLS,
+     "if node not in self.allowed:", "if False:", CREW_TESTS + "test_crew_privileges.py"),
+    ("crew privilege: evidence for a product without a gap", CREW_TOOLS,
+     "if not mine:", "if False:", CREW_TESTS + "test_crew_privileges.py"),
+    ("crew privilege: evidence before the gaps are known", CREW_TOOLS,
+     "if gaps is None:", "if False:", CREW_TESTS + "test_crew_privileges.py"),
+    ("crew: the gap list retyped by the model", CREW_TOOLS,
+     "result_as_answer: bool = True", "result_as_answer: bool = False", CREW_TESTS + "test_crew_privileges.py"),
+
+    # The CrewAI version: the flow around the crew.
+    ("crew: an analyst that never called its tool is not a failure", CREW_FLOW,
+     '        if "gaps" not in case:\n            raise AgentFailure(',
+     '        if False:\n            raise AgentFailure(', CREW_TESTS + "test_crew_flow.py"),
+    ("crew: a gap without an answer counts as noise", CREW_FLOW,
+     'check_classification(answers[g["result_id"]], g,',
+     'check_classification(answers[g["result_id"]] or {"reasoning": "", "category": "numerical_noise"}, g,',
+     CREW_TESTS + "test_crew_flow.py"),
+    ("crew: the route of the score is ignored", CREW_FLOW,
+     'return self.state.risk["route"]', 'return "go"', CREW_TESTS + "test_crew_flow.py"),
+    ("crew: an invalid human answer is accepted", CREW_FLOW,
+     "        if problem:\n", "        if False:\n", CREW_TESTS + "test_crew_flow.py"),
+    ("crew: a pause is not traced", CREW_FLOW,
+     '        flow.trace_step("human_review", "interrupted", 0, {"question": context.method_output})\n', "",
+     CREW_TESTS + "test_crew_flow.py"),
+    ("crew: the matcher is asked even without a gap", CREW_CREW,
+     'condition=lambda _: bool(case.get("gaps")),', "condition=lambda _: True,", CREW_TESTS + "test_crew_flow.py"),
+    ("crew: invented numbers in the summary not checked", REPORT,
+     "unknown = sorted(numbers_in(text) - numbers_in(given))", "unknown = []", CREW_TESTS + "test_crew_flow.py"),
+
+    # The CrewAI version: the model settings and what leaves the machine.
+    ("crew model: temperature above zero", CREW_LLM,
+     '"temperature": 0, "seed"', '"temperature": 0.7, "seed"', CREW_TESTS + "test_crew_llm.py"),
+    ("crew model: no fixed seed", CREW_LLM,
+     '"seed": self.seed, ', "", CREW_TESTS + "test_crew_llm.py"),
+    ("crew model: the context cut to Ollama's default", CREW_LLM,
+     ', "num_ctx": NUM_CTX}}', "}}", CREW_TESTS + "test_crew_llm.py"),
+    ("crew model: thinking on", CREW_LLM,
+     '"think": False,', '"think": True,', CREW_TESTS + "test_crew_llm.py"),
+    ("crew: telemetry left to the shell", CREW_INIT,
+     "os.environ.update(TELEMETRY_OFF)", "[os.environ.setdefault(k, v) for k, v in TELEMETRY_OFF.items()]",
+     CREW_TESTS + "test_crew_llm.py"),
 ]
+
+CREW_PYTHON = next((p for p in (ROOT / ".venv-crew" / "Scripts" / "python.exe", ROOT / ".venv-crew" / "bin" / "python")
+                    if p.exists()), None)
 
 
 def caught(test_file: str) -> bool:
-    run = subprocess.run([sys.executable, "-m", "pytest", "-q", "-x", "-p", "no:logging", "-p", "no:cacheprovider",
+    python = sys.executable
+    if test_file.startswith(CREW_TESTS):
+        if CREW_PYTHON is None:
+            raise SystemExit("no .venv-crew: the CrewAI mutations cannot be checked (see README)")
+        python = str(CREW_PYTHON)
+    run = subprocess.run([python, "-m", "pytest", "-q", "-x", "-p", "no:logging", "-p", "no:cacheprovider",
                           test_file], cwd=ROOT, capture_output=True, text=True, timeout=600)
     return run.returncode != 0
 
@@ -149,8 +218,10 @@ def write_exact(path: Path, text: str) -> None:
 
 
 def main() -> int:
+    only_crew = sys.argv[1:] == ["--only", "crew"]
+    chosen = [m for m in MUTATIONS if not only_crew or m[4].startswith(CREW_TESTS)]
     missed = []
-    for name, file, original, mutated, test_file in MUTATIONS:
+    for name, file, original, mutated, test_file in chosen:
         path = ROOT / file
         # Read and written back without newline translation: the file comes
         # back exactly as it was, whatever its line endings.
@@ -169,7 +240,7 @@ def main() -> int:
         print(f"{'caught' if ok else 'MISSED'}  {name}", flush=True)
         if not ok:
             missed.append(name)
-    print(f"\n{len(MUTATIONS) - len(missed)}/{len(MUTATIONS)} mutations caught.")
+    print(f"\n{len(chosen) - len(missed)}/{len(chosen)} mutations caught.")
     return 1 if missed else 0
 
 
