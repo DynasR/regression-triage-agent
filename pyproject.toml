@@ -1,0 +1,30 @@
+[project]
+name = "regression-triage-agent"
+version = "0.0.1"
+description = "A LangGraph agent that triages a non-regression campaign of bank pricing code, reads the data only through a read-only MCP server, and runs on a local model."
+requires-python = ">=3.11"
+dependencies = [
+    "langgraph>=1.2,<1.3",
+    "langgraph-checkpoint-sqlite>=3.1",
+    "ollama>=0.6",
+    "pydantic>=2.10",
+    "sqlglot>=30",
+    "mcp>=2.3",
+    # The data gateway. Installed from the sibling folder for now:
+    #   pip install -e ../readonly-sql-mcp
+    "readonly-sql-mcp",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=9", "anyio>=4"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
