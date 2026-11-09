@@ -212,3 +212,13 @@ tuning to the test; left as is.
 - Another model (a larger local one, or a hosted one for comparison) on the
   same campaigns: `--model` exists, the comparison has not been run.
 - Campaigns with hundreds of gaps (the server's 200-row cap stops the run).
+
+## 2026-11-09, after run 3: the number guard, seen from the demo
+
+Not an evaluation, one manual run of `run 4` then `resume` (commit d7ba4d9).
+The summary was rejected because it wrote *"scores between 3 and 9 trigger
+manual review"*: 9 is a correct inference (from 3 up to, but not including,
+10), but it is not in the facts, so the guard replaced the paragraph. A
+false positive, on the safe side: the memo lost a sentence, not a fact. The
+rejected text is now kept in the state and in the trace (`rejected_text`),
+never in the memo, so the rejection can be audited.
