@@ -1,0 +1,20 @@
+{
+  "spec": "SPEC-ARR",
+  "file": "arrondi-montants.md",
+  "note": "Written by hand from the text of the spec, not from the code. Never shown to the model, never read by the spec_tests package: only by the tests and the evaluation.",
+  "rules": ["R-01", "R-02", "R-03", "R-04"],
+  "bounds": {
+    "R-01": {"variable": "montant", "limit": "0.005", "limit_expected": "0.01", "beyond": "0.0049", "beyond_expected": "0.00"},
+    "R-02": {"variable": "taux", "limit": "0.00005", "limit_expected": "0.0000", "beyond": "0.000051", "beyond_expected": "0.0001"}
+  },
+  "must_cover": [
+    {"rule": "R-01", "variable": "montant", "value": "0.005", "expected": "0.01", "why": "à mi-chemin : vers le haut"},
+    {"rule": "R-01", "variable": "montant", "value": "0.0049", "expected": "0.00", "why": "juste en deçà de la moitié"},
+    {"rule": "R-01", "variable": "montant", "value": "-2.345", "expected": "-2.35", "why": "négatif : s'éloigne de zéro"},
+    {"rule": "R-02", "variable": "taux", "value": "0.00005", "expected": "0.0000", "why": "à mi-chemin : vers le pair, ici zéro"},
+    {"rule": "R-02", "variable": "taux", "value": "0.000051", "expected": "0.0001", "why": "juste au-delà de la moitié"},
+    {"rule": "R-02", "variable": "taux", "value": "0.03135", "expected": "0.0314", "why": "à mi-chemin avec un chiffre impair : vers le pair au-dessus"},
+    {"rule": "R-03", "why": "un calcul en deux étapes : un seul arrondi, au résultat final"},
+    {"rule": "R-04", "why": "une valeur absente : reste absente, résultat non calculable, jamais zéro"}
+  ]
+}

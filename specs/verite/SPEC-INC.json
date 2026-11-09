@@ -1,0 +1,19 @@
+{
+  "spec": "SPEC-INC",
+  "file": "ticket-incident.md",
+  "note": "Written by hand from the text of the spec, not from the code. Never shown to the model, never read by the spec_tests package: only by the tests and the evaluation.",
+  "rules": ["R-01", "R-02", "R-03", "R-04", "R-05"],
+  "bounds": {
+    "R-02": {"variable": "longueur_titre", "limit": "80", "limit_expected": "accepté", "beyond": "81", "beyond_expected": "refusé"},
+    "R-03": {"variable": "longueur_titre", "limit": "10", "limit_expected": "accepté", "beyond": "9", "beyond_expected": "refusé"}
+  },
+  "must_cover": [
+    {"rule": "R-02", "variable": "longueur_titre", "value": "80", "expected": "accepté", "why": "à la limite"},
+    {"rule": "R-02", "variable": "longueur_titre", "value": "81", "expected": "refusé", "why": "juste au-delà"},
+    {"rule": "R-03", "variable": "longueur_titre", "value": "10", "expected": "accepté", "why": "à la limite"},
+    {"rule": "R-03", "variable": "longueur_titre", "value": "9", "expected": "refusé", "why": "juste en deçà"},
+    {"rule": "R-01", "why": "un identifiant à six chiffres accepté, un à quatre ou sept chiffres refusé"},
+    {"rule": "R-04", "why": "une priorité hors P1 à P3 (P0, P4) ou absente : refusée"},
+    {"rule": "R-05", "why": "un code produit inconnu ou absent : refusé"}
+  ]
+}
