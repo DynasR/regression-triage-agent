@@ -1,0 +1,25 @@
+{
+  "spec": "SPEC-TOL",
+  "file": "tolerance-ecarts-pv.md",
+  "note": "Written by hand from the text of the spec, not from the code. Never shown to the model, never read by the spec_tests package: only by the tests and the evaluation.",
+  "rules": ["R-01", "R-02", "R-03", "R-04", "R-05", "R-06"],
+  "bounds": {
+    "R-01": {"variable": "ecart_pv", "limit": "50.00", "limit_expected": "accepté", "beyond": "50.01", "beyond_expected": "signalé"},
+    "R-02": {"variable": "ecart_pv", "limit": "25.00", "limit_expected": "accepté", "beyond": "25.01", "beyond_expected": "signalé"},
+    "R-03": {"variable": "ecart_pv", "limit": "120.00", "limit_expected": "accepté", "beyond": "120.01", "beyond_expected": "signalé"},
+    "R-04": {"variable": "rapport_tolerance", "limit": "5", "limit_expected": "significatif", "beyond": "4.99", "beyond_expected": "bruit"}
+  },
+  "must_cover": [
+    {"rule": "R-01", "variable": "ecart_pv", "value": "50.00", "expected": "accepté", "why": "à la limite"},
+    {"rule": "R-01", "variable": "ecart_pv", "value": "50.01", "expected": "signalé", "why": "juste au-delà"},
+    {"rule": "R-01", "variable": "ecart_pv", "value": "-50.01", "expected": "signalé", "why": "côté négatif : la règle porte sur la valeur absolue"},
+    {"rule": "R-02", "variable": "ecart_pv", "value": "25.00", "expected": "accepté", "why": "à la limite"},
+    {"rule": "R-02", "variable": "ecart_pv", "value": "25.01", "expected": "signalé", "why": "juste au-delà"},
+    {"rule": "R-03", "variable": "ecart_pv", "value": "120.00", "expected": "accepté", "why": "à la limite"},
+    {"rule": "R-03", "variable": "ecart_pv", "value": "120.01", "expected": "signalé", "why": "juste au-delà"},
+    {"rule": "R-04", "variable": "rapport_tolerance", "value": "5", "expected": "significatif", "why": "à la limite : strictement inférieur"},
+    {"rule": "R-04", "variable": "rapport_tolerance", "value": "4.99", "expected": "bruit", "why": "juste en deçà"},
+    {"rule": "R-05", "why": "un produit sans tolérance : écart signalé, mention tolérance absente"},
+    {"rule": "R-06", "why": "une valorisation en échec : signalée, jamais du bruit"}
+  ]
+}

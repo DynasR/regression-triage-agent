@@ -1,0 +1,21 @@
+{
+  "spec": "SPEC-BLQ",
+  "file": "blocage-livraison.md",
+  "note": "Written by hand from the text of the spec, not from the code. Never shown to the model, never read by the spec_tests package: only by the tests and the evaluation.",
+  "rules": ["R-01", "R-02", "R-03", "R-04", "R-05"],
+  "bounds": {
+    "R-01": {"variable": "score_risque", "limit": "10", "limit_expected": "bloquée", "beyond": "9", "beyond_expected": "non bloquée"},
+    "R-02": {"variable": "score_risque", "limit": "3", "limit_expected": "revue humaine", "beyond": "2", "beyond_expected": "livraison automatique"},
+    "R-04": {"variable": "delai_reponse_h", "limit": "48", "limit_expected": "maintenue", "beyond": "49", "beyond_expected": "reportée"}
+  },
+  "must_cover": [
+    {"rule": "R-01", "variable": "score_risque", "value": "10", "expected": "bloquée", "why": "à la limite"},
+    {"rule": "R-01", "variable": "score_risque", "value": "9", "expected": "non bloquée", "why": "juste en deçà"},
+    {"rule": "R-02", "variable": "score_risque", "value": "3", "expected": "revue humaine", "why": "à la limite : strictement inférieur"},
+    {"rule": "R-02", "variable": "score_risque", "value": "2", "expected": "livraison automatique", "why": "juste en deçà"},
+    {"rule": "R-04", "variable": "delai_reponse_h", "value": "48", "expected": "maintenue", "why": "à la limite : strictement supérieur"},
+    {"rule": "R-04", "variable": "delai_reponse_h", "value": "49", "expected": "reportée", "why": "juste au-delà"},
+    {"rule": "R-03", "why": "une valorisation en échec avec un score faible : bloquée quand même"},
+    {"rule": "R-05", "why": "une décision anonyme : refusée et redemandée, jamais un accord"}
+  ]
+}
