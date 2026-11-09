@@ -21,7 +21,8 @@ def short(value) -> object:
         return value if len(text) <= 5 * MAX_CHARS else {"items": len(value), "first": short(value[0]) if value else None}
     if isinstance(value, dict):
         text = json.dumps(value, default=str, ensure_ascii=False)
-        return value if len(text) <= MAX_CHARS else {"keys": sorted(value), "chars": len(text)}
+        # Too long as a whole: keep every key, shorten each value.
+        return value if len(text) <= MAX_CHARS else {k: short(v) for k, v in value.items()}
     if isinstance(value, str) and len(value) > MAX_CHARS:
         return value[:MAX_CHARS] + f"… ({len(value)} chars)"
     return value
