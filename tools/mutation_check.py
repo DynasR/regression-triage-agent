@@ -138,7 +138,9 @@ MUTATIONS = [
     ("eval judge: a missed gap is not counted", EVALS,
      "for case, metric in set(truth) - found)", "for case, metric in set())", "tests/test_eval_judge.py"),
     ("eval judge: a crew that failed its job is excused as the instrument", EVALS,
-     '    if result["error"]:\n', '    if result["error"] or result.get("agent_error"):\n', "tests/test_eval_judge.py"),
+     '    if result["error"]:\n',
+     '    if result["error"] or result.get("agent_error"):\n        return result["error"] or result["agent_error"]\n',
+     "tests/test_eval_judge.py"),
     ("eval judge: the crew's raw text not measured", EVALS,
      '\n                + json.dumps(result.get("raw_text"), sort_keys=True))', ")", "tests/test_eval_judge.py"),
 
