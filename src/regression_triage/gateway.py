@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any
 
 import sqlglot
-from mcp import Client, StdioServerParameters
+from mcp import StdioServerParameters
 from sqlglot import exp
 from sqlglot.errors import SqlglotError
 
@@ -69,6 +69,9 @@ class BankData:
     """An open MCP session to the bank's data. Use as an async context manager."""
 
     def __init__(self, server: Any):
+        # The mcp 2 client. Imported here so that this module also loads in the CrewAI
+        # environment, whose crewai pins mcp<2 and brings its own client (crew/bank.py).
+        from mcp import Client
         self._client = Client(server)
         self.calls: list[tuple[str, str]] = []   # (node, tool) of every call that reached the server
 

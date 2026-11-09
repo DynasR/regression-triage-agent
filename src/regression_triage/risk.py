@@ -61,6 +61,17 @@ def check_classification(raw, gap: dict, evidence: dict) -> dict:
             "proposed": {"category": category, "evidence_id": raw.get("evidence_id")}}
 
 
+def check_human_answer(answer) -> str | None:
+    """What is wrong with a reviewer's answer, or None. An invalid answer is asked again, never guessed."""
+    if not isinstance(answer, dict):
+        return "the answer must be an object with decision and reviewer"
+    if answer.get("decision") not in ("go", "block"):
+        return "decision must be 'go' or 'block'"
+    if not isinstance(answer.get("reviewer"), str) or not answer["reviewer"].strip():
+        return "reviewer must name the person who decides"
+    return None
+
+
 def route(points: int) -> str:
     if points >= BLOCK_FROM:
         return "block"
