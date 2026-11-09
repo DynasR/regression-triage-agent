@@ -22,8 +22,8 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.types import interrupt
 
 from . import report as memo_writer
-from .campaign import find_gaps, load_campaign
-from .risk import check_classification, score
+from .campaign import evidence_for, fetch_evidence, find_gaps, load_campaign
+from .risk import check_classification, check_human_answer, score
 
 
 class TriageState(TypedDict, total=False):
@@ -37,44 +37,12 @@ class TriageState(TypedDict, total=False):
     memo: str
 
 
-def _text(value: str) -> str:
-    return "'" + value.replace("'", "''") + "'"
-
-
-async def fetch_evidence(tools, campaign: dict, gaps: list[dict]) -> dict:
-    """Release notes of the candidate release, and tickets, for the products that have gaps."""
-    products = ", ".join(_text(code) for code in sorted({g["product_code"] for g in gaps}))
-    notes = await tools.query(
-        "SELECT id, product_code, text FROM release_notes "
-        f"WHERE release = {_text(campaign['candidate_release'])} "
-        f"AND (product_code IS NULL OR product_code IN ({products})) ORDER BY id")
-    tickets = await tools.query(
-        "SELECT id, product_code, status, title, description FROM tickets "
-        f"WHERE product_code IN ({products}) ORDER BY id")
-    return {"release_notes": notes, "tickets": tickets}
-
-
-def evidence_for(gap: dict, evidence: dict) -> dict:
-    return {"release_notes": [n for n in evidence["release_notes"] if n["product_code"] in (None, gap["product_code"])],
-            "tickets": [t for t in evidence["tickets"] if t["product_code"] == gap["product_code"]]}
-
-
 def after_gaps(state: TriageState) -> str:
     return "classify_gaps" if state["gaps"] else "score_risk"
 
 
 def after_score(state: TriageState) -> str:
     return state["risk"]["route"]
-
-
-def check_human_answer(answer) -> str | None:
-    if not isinstance(answer, dict):
-        return "the answer must be an object with decision and reviewer"
-    if answer.get("decision") not in ("go", "block"):
-        return "decision must be 'go' or 'block'"
-    if not isinstance(answer.get("reviewer"), str) or not answer["reviewer"].strip():
-        return "reviewer must name the person who decides"
-    return None
 
 
 def build_graph(data, judge, tracer=None, checkpointer=None):

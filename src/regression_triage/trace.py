@@ -9,7 +9,11 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-from langgraph.errors import GraphInterrupt
+try:
+    from langgraph.errors import GraphInterrupt
+except ImportError:   # the CrewAI version (crew/) runs in an environment without LangGraph
+    class GraphInterrupt(Exception):
+        """Never raised: stands in for LangGraph's pause when LangGraph is not installed."""
 
 MAX_CHARS = 600
 

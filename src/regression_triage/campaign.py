@@ -75,3 +75,25 @@ async def find_gaps(tools, campaign_id: int) -> list[dict]:
     cid = _id(campaign_id)
     rows = await tools.query(GAPS_SQL.format(cid=cid))
     return [describe_gap(row) for row in rows]
+
+
+def _text(value: str) -> str:
+    return "'" + value.replace("'", "''") + "'"
+
+
+async def fetch_evidence(tools, campaign: dict, gaps: list[dict]) -> dict:
+    """Release notes of the candidate release, and tickets, for the products that have gaps."""
+    products = ", ".join(_text(code) for code in sorted({g["product_code"] for g in gaps}))
+    notes = await tools.query(
+        "SELECT id, product_code, text FROM release_notes "
+        f"WHERE release = {_text(campaign['candidate_release'])} "
+        f"AND (product_code IS NULL OR product_code IN ({products})) ORDER BY id")
+    tickets = await tools.query(
+        "SELECT id, product_code, status, title, description FROM tickets "
+        f"WHERE product_code IN ({products}) ORDER BY id")
+    return {"release_notes": notes, "tickets": tickets}
+
+
+def evidence_for(gap: dict, evidence: dict) -> dict:
+    return {"release_notes": [n for n in evidence["release_notes"] if n["product_code"] in (None, gap["product_code"])],
+            "tickets": [t for t in evidence["tickets"] if t["product_code"] == gap["product_code"]]}
