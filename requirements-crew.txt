@@ -1,0 +1,13 @@
+# The CrewAI environment (.venv-crew), kept apart from the LangGraph one.
+# Not an extra of pyproject.toml: crewai 1.15 pins mcp<2 (and pydantic<2.13),
+# while this project and readonly-sql-mcp need mcp 2. The two cannot share an
+# environment; the MCP server keeps running with the .venv interpreter.
+#
+#   python -m venv .venv-crew
+#   .venv-crew/Scripts/pip install -r requirements-crew.txt     (Windows; bin/ elsewhere)
+#   .venv-crew/Scripts/pip install --no-deps -e .
+crewai==1.15.39
+ollama>=0.6
+sqlglot>=30
+pytest>=9
+anyio>=4
