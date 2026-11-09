@@ -103,6 +103,12 @@ def test_a_gap_left_unclassified_counts_as_a_new_regression():
     assert found["lines"][1]["category"] == "new_regression" and found["score"] == 5
 
 
+@pytest.mark.parametrize("criticality", [None, "unknown", "HIGH"])
+def test_an_unknown_criticality_counts_as_the_highest(criticality):
+    found = score([gap(1, criticality=criticality)], [classified(1, "new_regression")])
+    assert found["lines"][0]["criticality"] == "high" and found["score"] == 15
+
+
 def test_no_gap_scores_zero():
     assert score([], [])["score"] == 0
 

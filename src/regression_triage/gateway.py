@@ -53,17 +53,14 @@ def tables_read(sql: str) -> set[str]:
     statement = statements[0]
     if not isinstance(statement, exp.Query):
         raise AccessDenied("only a SELECT can be checked against a scope")
-    # A CTE alias can shadow a table name (WITH tolerances AS (SELECT * FROM tickets)).
-    # The queries of the nodes are written in this code and do not need one.
-    if any(True for _ in statement.find_all(exp.CTE)):
-        raise AccessDenied("common table expressions are not allowed in a scoped query")
     tables = set()
     for table in statement.find_all(exp.Table):
         if table.db or table.catalog:
             raise AccessDenied(f"schema-qualified table {table.sql()!r} is not allowed")
-        if not table.name:
-            # A table-valued function: pragma_table_info('tickets'), json_each(...).
-            raise AccessDenied(f"table-valued function {table.sql()!r} is not allowed")
+        # No special case is needed for the rest: a table-valued function such as
+        # pragma_table_info('tickets') has an empty name, and a CTE alias is read as
+        # a table name; neither is ever in a scope. The tables a CTE body reads are
+        # found by this same walk.
         tables.add(table.name.lower())
     return tables
 

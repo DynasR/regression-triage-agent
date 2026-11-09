@@ -131,3 +131,17 @@ async def test_one_trace_line_per_node_with_time_and_tokens(bank_db, tmp_path):
     assert classify["tokens"] == {"calls": 2, "prompt_tokens": 200, "output_tokens": 20}
     assert all(line["ms"] >= 0 and line["run_id"] == "t1" for line in lines)
     assert lines[0]["tokens"] is None
+
+
+def test_the_graph_has_exactly_these_edges():
+    # The diagrams of the README and of docs/apprendre-langgraph.md draw this list.
+    from regression_triage.graph import build_graph
+    edges = {(e.source, e.target, e.conditional) for e in build_graph(None, None).get_graph().edges}
+    assert edges == {
+        ("__start__", "load_campaign", False), ("load_campaign", "compute_gaps", False),
+        ("compute_gaps", "classify_gaps", True), ("compute_gaps", "score_risk", True),
+        ("classify_gaps", "score_risk", False),
+        ("score_risk", "go", True), ("score_risk", "block", True), ("score_risk", "human_review", True),
+        ("go", "report", False), ("block", "report", False), ("human_review", "report", False),
+        ("report", "__end__", False),
+    }

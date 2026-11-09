@@ -45,6 +45,8 @@ async def test_a_tool_outside_the_scope_is_refused_before_reaching_the_server(ba
     "SELECT name FROM sqlite_master",
     "SELECT * FROM pragma_table_info('tickets')",
     "SELECT * FROM main.tickets",
+    "SELECT * FROM other.results",
+    "WITH x AS (SELECT id FROM results) SELECT * FROM x",
     "SELECT * FROM results; SELECT * FROM tickets",
     "this is not SQL",
 ])
