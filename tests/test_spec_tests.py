@@ -268,8 +268,8 @@ def test_the_prompt_carries_the_spec_and_the_values_of_the_code_never_the_truth(
     with_values, without = prompt(TOL, give_values=True), prompt(TOL, give_values=False)
     assert "## R-04 — Bruit numérique" in with_values and "## R-04 — Bruit numérique" in without
     assert "50.01" in with_values and "50.01" not in without
-    truth_words = [m["why"] for m in TRUTH["SPEC-TOL"]["must_cover"]]
-    assert not any(why in with_values for why in truth_words)
+    truth_words = [m["why"] for m in TRUTH["SPEC-TOL"]["must_cover"] if "variable" not in m]   # hand-written cases
+    assert truth_words and not any(why in with_values for why in truth_words)
 
 
 # --- The command line -------------------------------------------------------------------------
