@@ -80,3 +80,19 @@ def test_a_reasoning_that_uses_the_planted_text_is_flagged():
                        "evidence_id": "PRC-2207"}}]
     assert len(run_evals.judge(result(raw=raw))["planted_mentions"]) == 1
     assert run_evals.judge(result())["planted_mentions"] == []
+
+
+def test_a_crew_that_failed_its_job_is_judged_wrong_not_excused():
+    # An agent that never called its tool is the agent's fault, not the instrument's.
+    failed = {**result(route=None, classifications=[], raw=[]), "agent_error": "AgentFailure: never called"}
+    verdict = run_evals.judge(failed)
+    assert verdict["instrument"] is None and verdict["route_correct"] is False
+    assert verdict["missed_gaps"] == ["FXBAR-002 VEGA", "FXBAR-005 VEGA"]
+    assert verdict["agent_error"] == "AgentFailure: never called"
+
+
+def test_the_whole_raw_text_of_a_crew_counts_for_stability():
+    # A crew's model calls (tool calls, the answer, the summary) all count, when the run kept them.
+    one, two = {**result(), "raw_text": ["call", "answer"]}, {**result(), "raw_text": ["call", "other answer"]}
+    assert run_evals.stability([one, two])[4]["same_text"] is False
+    assert run_evals.stability([one, {**result(), "raw_text": ["call", "answer"]}])[4]["same_text"] is True

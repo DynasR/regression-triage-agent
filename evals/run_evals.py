@@ -19,8 +19,14 @@ Then each run is judged against the ground truth of the demo data
 A run where the model could not be reached is reported as NOT JUDGED
 (instrument), never as a wrong answer.
 
+Two engines, judged by the same code: the LangGraph agent (default, run with
+the .venv interpreter) and the CrewAI version (--engine crew, run with the
+.venv-crew interpreter). A crew that fails its job (an agent that never calls
+its tool) is judged wrong, never excused as an instrument failure.
+
 Usage:
   python evals/run_evals.py                          # 8 campaigns x 3 repetitions
+  .venv-crew/Scripts/python evals/run_evals.py --engine crew
   python evals/run_evals.py --campaigns 7 8 --reps 1
   python evals/run_evals.py --rejudge evals/runs/<timestamp>
   python evals/run_evals.py --compare evals/runs/<A> evals/runs/<B>
@@ -28,6 +34,7 @@ Usage:
 import argparse
 import asyncio
 import json
+import logging
 import shutil
 import subprocess
 import sys
@@ -41,8 +48,7 @@ sys.path.insert(0, str(HERE.parent / "src"))
 
 from regression_triage import trace  # noqa: E402
 from regression_triage.data import CAMPAIGNS, build, campaign as campaign_of  # noqa: E402
-from regression_triage.judge import DEFAULT_MODEL, OllamaJudge  # noqa: E402
-from regression_triage.runner import run  # noqa: E402
+from regression_triage.judge import DEFAULT_MODEL  # noqa: E402
 
 # Words of the planted instruction (data.PLANTED_INSTRUCTION). A reasoning that
 # uses them shows the model took the planted text into account, even when its
@@ -62,6 +68,10 @@ def code_version() -> str:
 
 
 def run_one(campaign_id: int, rep: int, out: Path, model: str) -> Path:
+    # Imported here: the CrewAI environment has no LangGraph.
+    from regression_triage.judge import OllamaJudge
+    from regression_triage.runner import run
+
     run_dir = out / f"C{campaign_id}__{rep}"
     run_dir.mkdir(parents=True, exist_ok=True)
     work = Path(tempfile.mkdtemp(prefix="triage-eval-"))
@@ -90,7 +100,7 @@ def run_one(campaign_id: int, rep: int, out: Path, model: str) -> Path:
     seconds = round(time.monotonic() - started, 1)
     gaps = {g["result_id"]: g for g in state.get("gaps", [])}
     result = {
-        "campaign": campaign_id, "rep": rep, "model": model, "code": code_version(),
+        "engine": "langgraph", "campaign": campaign_id, "rep": rep, "model": model, "code": code_version(),
         "seconds": seconds, "error": error,
         "route": state.get("risk", {}).get("route"), "score": state.get("risk", {}).get("score"),
         "final": state.get("decision", {}).get("final"),
@@ -99,6 +109,60 @@ def run_one(campaign_id: int, rep: int, out: Path, model: str) -> Path:
                              "case_id": gaps[c["result_id"]]["case_id"], "metric": gaps[c["result_id"]]["metric"]}
                             for c in state.get("classifications", [])],
         "raw_answers": raw_answers,
+        "summary": state.get("summary"),
+    }
+    (run_dir / "result.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
+    if state.get("memo"):
+        (run_dir / "memo.md").write_text(state["memo"], encoding="utf-8")
+    return run_dir
+
+
+def run_one_crew(campaign_id: int, rep: int, out: Path, model: str) -> Path:
+    """The same run with the CrewAI version: same fresh database, same server, same model, same reviewer."""
+    from regression_triage.crew.crew import match_answers
+    from regression_triage.crew.llm import OllamaLLM
+    from regression_triage.crew.runner import run as run_crew
+
+    logging.getLogger("crewai").setLevel(logging.ERROR)
+    run_dir = out / f"C{campaign_id}__{rep}"
+    run_dir.mkdir(parents=True, exist_ok=True)
+    work = Path(tempfile.mkdtemp(prefix="triage-eval-crew-"))
+    llm = OllamaLLM(model=model)
+    started = time.monotonic()
+    error = agent_error = None
+    state = {}
+    try:
+        db = build(work / "bank.db")
+        state = run_crew(db, llm, f"eval-C{campaign_id}-{rep}", campaign_id=campaign_id,
+                         persistence=work / "flows.sqlite", trace_path=run_dir / "trace.jsonl",
+                         human=lambda question: SCRIPTED_REVIEWER)
+    except Exception as failure:  # reported, never hidden
+        text = f"{type(failure).__name__}: {failure}"[:500]
+        # The model down is the instrument; anything else is the crew's own failure.
+        if any("error" in call for call in llm.calls):
+            error = text
+        else:
+            agent_error = text
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+    seconds = round(time.monotonic() - started, 1)
+    gaps = {g["result_id"]: g for g in state.get("gaps", [])}
+    answers = match_answers(list(gaps.values()), state.get("answers", []))
+    result = {
+        "engine": "crew", "campaign": campaign_id, "rep": rep, "model": model, "code": code_version(),
+        "seconds": seconds, "error": error, "agent_error": agent_error, "matcher_error": state.get("matcher_error"),
+        "route": state.get("risk", {}).get("route"), "score": state.get("risk", {}).get("score"),
+        "final": state.get("decision", {}).get("final"),
+        "classifications": [{**{k: c[k] for k in ("category", "evidence_id", "accepted", "rejected_because",
+                                                  "proposed", "rationale")},
+                             "case_id": gaps[c["result_id"]]["case_id"], "metric": gaps[c["result_id"]]["metric"]}
+                            for c in state.get("classifications", [])],
+        "raw_answers": [{"case_id": g["case_id"], "metric": g["metric"],
+                         "answer": answers[rid] or {"error": "no answer from the model for this gap"}}
+                        for rid, g in gaps.items()],
+        # Every model call of the run, in order: the determinism measure of a crew covers them all.
+        "raw_text": [[c.get("agent"), c.get("text"), c.get("tool_calls"), c.get("error")] for c in llm.calls],
+        "model_calls": len(llm.calls),
         "summary": state.get("summary"),
     }
     (run_dir / "result.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
@@ -148,6 +212,7 @@ def judge(result: dict) -> dict:
     return {
         "campaign": result["campaign"], "rep": result["rep"],
         "instrument": problem,
+        "agent_error": result.get("agent_error"),
         "route": result["route"], "expected_route": campaign.decision,
         "route_correct": result["route"] == campaign.decision,
         "gaps": gaps,
@@ -163,7 +228,8 @@ def judge(result: dict) -> dict:
 
 def fingerprint(result: dict, raw: bool = False) -> str:
     if raw:
-        return json.dumps(result["raw_answers"], sort_keys=True) + json.dumps((result["summary"] or {}).get("text"))
+        return (json.dumps(result["raw_answers"], sort_keys=True) + json.dumps((result["summary"] or {}).get("text"))
+                + json.dumps(result.get("raw_text"), sort_keys=True))
     return json.dumps([result["route"]] + sorted((c["case_id"], c["metric"], c["category"], c["evidence_id"] or "")
                                                  for c in result["classifications"]))
 
@@ -186,8 +252,9 @@ def summarize(verdicts: list[dict], results: list[dict], out: Path) -> str:
     judged = [v for v in verdicts if not v["instrument"]]
     stable = stability([r for r, v in zip(results, verdicts) if not v["instrument"]])
     lines = ["| Campaign | Expected route | Routes | Route right | Gaps right (agent) | Gaps right (model alone) "
-             "| Same route | Same categories | Same text | Seconds (mean) |",
-             "|---|---|---|---|---|---|---|---|---|---|"]
+             "| Same route | Same categories | Same text | Seconds (mean) | Model calls (mean) |",
+             "|---|---|---|---|---|---|---|---|---|---|---|"]
+    calls = {(r["campaign"], r["rep"]): tokens(out / f"C{r['campaign']}__{r['rep']}")["calls"] for r in results}
     for campaign in CAMPAIGNS:
         runs = [v for v in judged if v["campaign"] == campaign.id]
         if not runs:
@@ -201,7 +268,8 @@ def summarize(verdicts: list[dict], results: list[dict], out: Path) -> str:
             f"| {sum(v['route_correct'] for v in runs)}/{len(runs)} "
             f"| {sum(g['correct'] for g in gaps)}/{len(gaps)} | {sum(g['model_correct'] for g in gaps)}/{len(gaps)} "
             f"| {yes(s.get('same_route'))} | {yes(s.get('same_categories'))} | {yes(s.get('same_text'))} "
-            f"| {sum(v['seconds'] for v in runs) / len(runs):.1f} |")
+            f"| {sum(v['seconds'] for v in runs) / len(runs):.1f} "
+            f"| {sum(calls[(v['campaign'], v['rep'])] for v in runs) / len(runs):.1f} |")
     gaps = [g for v in judged for g in v["gaps"]] + [{"correct": False, "model_correct": False}
                                                      for v in judged for _ in v["missed_gaps"]]
     used = [tokens(out / f"C{r['campaign']}__{r['rep']}") for r in results]
@@ -216,7 +284,8 @@ def summarize(verdicts: list[dict], results: list[dict], out: Path) -> str:
               f"Model calls: {sum(u['calls'] for u in used)}, tokens in/out: "
               f"{sum(u['prompt'] for u in used)}/{sum(u['output'] for u in used)}. "
               f"Wall time: {sum(r['seconds'] for r in results):.0f} s. "
-              f"{len(verdicts) - len(judged)} run(s) not judged (instrument)."]
+              f"{len(verdicts) - len(judged)} run(s) not judged (instrument). "
+              f"{sum(1 for v in judged if v.get('agent_error'))} run(s) where an agent failed its job (judged wrong)."]
     return "\n".join(lines)
 
 
@@ -255,6 +324,7 @@ def main() -> None:
     parser.add_argument("--campaigns", nargs="*", type=int, help="campaign ids (default: all)")
     parser.add_argument("--reps", type=int, default=3)
     parser.add_argument("--model", default=DEFAULT_MODEL)
+    parser.add_argument("--engine", choices=["langgraph", "crew"], default="langgraph")
     parser.add_argument("--rejudge", type=Path, help="judge an existing folder again, without running")
     parser.add_argument("--compare", nargs=2, type=Path, metavar=("A", "B"))
     args = parser.parse_args()
@@ -267,11 +337,12 @@ def main() -> None:
         out = args.rejudge
     else:
         chosen = [c.id for c in CAMPAIGNS if not args.campaigns or c.id in args.campaigns]
-        out = HERE / "runs" / datetime.now().strftime("%Y%m%d-%H%M%S")
+        out = HERE / "runs" / (datetime.now().strftime("%Y%m%d-%H%M%S") + ("-crew" if args.engine == "crew" else ""))
         jobs = [(cid, rep) for rep in range(1, args.reps + 1) for cid in chosen]
-        print(f"{len(jobs)} run(s), model {args.model} -> {out}", flush=True)
+        print(f"{len(jobs)} run(s), engine {args.engine}, model {args.model} -> {out}", flush=True)
+        one = run_one_crew if args.engine == "crew" else run_one
         for cid, rep in jobs:   # one at a time: one local GPU
-            run_dir = run_one(cid, rep, out, args.model)
+            run_dir = one(cid, rep, out, args.model)
             print(f"  done {run_dir.name}", flush=True)
 
     results = load(out)
@@ -281,6 +352,8 @@ def main() -> None:
         if v["instrument"]:
             print(f"NOT JUDGED C{v['campaign']}#{v['rep']}: {v['instrument']}")
             continue
+        if v["agent_error"]:
+            print(f"AGENT FAILED C{v['campaign']}#{v['rep']}: {v['agent_error']}")
         if not v["route_correct"]:
             print(f"WRONG ROUTE C{v['campaign']}#{v['rep']}: {v['route']} (expected {v['expected_route']})")
         for g in v["gaps"]:
