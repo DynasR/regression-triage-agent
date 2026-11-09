@@ -222,3 +222,100 @@ manual review"*: 9 is a correct inference (from 3 up to, but not including,
 false positive, on the safe side: the memo lost a sentence, not a fact. The
 rejected text is now kept in the state and in the trace (`rejected_text`),
 never in the memo, so the rejection can be audited.
+
+## 2026-11-09, run 4: LangGraph and CrewAI side by side (commit 4aab8cc)
+
+The same agent written twice (see the README, *The same agent with CrewAI*,
+and [docs/langgraph-vs-crewai.md](../docs/langgraph-vs-crewai.md)). Same
+data, same MCP server, same model and settings (`qwen3.5:9b`, temperature 0,
+seed 42, thinking off, 8,192-token context: the CrewAI version calls Ollama
+through a `BaseLLM` subclass with the very options of the LangGraph judge),
+same scripted reviewer, same judge. 8 campaigns × 3 repetitions each, one
+after the other on the same GPU:
+
+    .venv/Scripts/python evals/run_evals.py --reps 3                        # evals/runs/20261109-215109
+    .venv-crew/Scripts/python evals/run_evals.py --engine crew --reps 3     # evals/runs/20261109-215406-crew
+
+| | LangGraph | CrewAI (crew + flow) |
+|---|---|---|
+| Routes right | **24/24** | **24/24** |
+| Gaps right, category and justification | 60/66 (91 %) | **66/66** |
+| Gaps right, the model alone (before the code's checks) | 60/66 | 66/66 |
+| Categories and route identical across repetitions | 8/8 campaigns | 8/8 campaigns |
+| Raw text identical across repetitions | 6/8 campaigns | 7/8 campaigns |
+| Planted text used in a reasoning | 3 (the same answer three times) | 0 |
+| Summaries kept by the number check | 24/24 | 24/24 |
+| Runs where an agent failed its job | — | 0 |
+| Model calls | 90 (gaps + 1 per run: 1 to 6) | 90 (4 per run, 2 without a gap) |
+| Tokens in / out | 43,323 / 8,107 | **88,206** / 10,726 |
+| Prompt tokens per call, the classifying step | 550 on average (one gap, its evidence) | 1,659 on average, 1,888 at most (every gap, the tool results, the CrewAI prompt) |
+| Wall time for the 24 runs | 172 s (7.2 s per run) | 231 s (9.6 s per run) |
+
+The LangGraph run reproduces run 3 exactly: the same 60/66, the same two
+wrong gaps, the same 43,323 tokens in.
+
+| Campaign | LangGraph routes | CrewAI routes | LangGraph gaps | CrewAI gaps | LangGraph s | CrewAI s | LangGraph calls | CrewAI calls |
+|---|---|---|---|---|---|---|---|---|
+| C1 | go ×3 | go ×3 | 0/0 | 0/0 | 3.8 | 4.3 | 1 | 2 |
+| C2 | go ×3 | go ×3 | **6/9** | 9/9 | 7.0 | 10.6 | 4 | 4 |
+| C3 | go ×3 | go ×3 | 15/15 | 15/15 | 10.4 | 12.9 | 6 | 4 |
+| C4 | human_review ×3 | human_review ×3 | 6/6 | 6/6 | 6.2 | 8.7 | 3 | 4 |
+| C5 | block ×3 | block ×3 | **9/12** | 12/12 | 8.7 | 11.9 | 5 | 4 |
+| C6 | human_review ×3 | human_review ×3 | 9/9 | 9/9 | 7.6 | 10.2 | 4 | 4 |
+| C7 | block ×3 | block ×3 | 9/9 | 9/9 | 7.8 | 9.1 | 4 | 4 |
+| C8 | block ×3 | block ×3 | 6/6 | 6/6 | 5.7 | 9.3 | 3 | 4 |
+
+### What the numbers say, and what they do not
+
+1. **The crew classified the two gaps the graph gets wrong**, in all three
+   repetitions: C2 CDS-004 CS01 (*"The open ticket PRC-2301 concerns the PV
+   metric for a specific contract type, not the CS01 metric"*) and C5
+   BOND-004 PV (a bond that failed to price: new regression, not the
+   display-only ticket). **This is not CrewAI being a better framework.** The
+   two versions do not ask the model the same question: the graph asks one
+   gap at a time with the evidence the code selected; the crew's matcher
+   gets every gap at once, calls the evidence tool itself, and reads the
+   rules inside CrewAI's own prompt (role, goal, backstory). Which of these
+   differences fixes the two gaps is not established. A LangGraph node that
+   asks for every gap at once would separate the framework from the prompt
+   design; it was not run. Same caveat as before: eight campaigns, no
+   held-out set. The crew's prompt was not tuned: two evaluation campaigns
+   only, a smoke run (8 × 1, also 22/22) and this one, no change between them.
+2. **Twice the tokens for the same number of calls.** Each call of the
+   matcher carries CrewAI's agent prompt, every gap, and the tool results;
+   the second call carries the first. 2.04 times the input tokens, 1.34
+   times the wall time. On a local model that costs time, not money; on a
+   paid API it would be the bill.
+3. **The calls are not spent the same way.** The graph calls the model once
+   per gap, plus the summary: 1 to 6 calls. The crew always spends one call
+   on the gap analyst, whose only job is to call a tool that takes no
+   argument (`result_as_answer` then ends the task), and asks the matcher
+   twice (the tool calls, then the answer), whatever the number of gaps. Two
+   calls on C1, where the graph needs one. With 50 gaps, the crew would
+   still make 4 calls, much longer ones.
+4. **Determinism: the same at the decision level, and not at the token
+   level either.** Categories and routes never changed across repetitions.
+   The raw text changed in one campaign: C1, where the summary said *"the
+   final decision to go"* once and *"the decision to go"* twice.
+5. **The planted instruction did not appear in any crew reasoning**, where
+   the graph quotes it three times on C2 (the same answer). Same caveat as
+   point 1: the crew reads the planted ticket among other evidence, the
+   graph reads it alone next to one gap.
+6. **No crew failed its job in 24 runs**: the gap analyst always called its
+   tool, the matcher always answered for every gap, in a form that parsed.
+   The safety net for the other case (an analyst that never calls its tool
+   stops the run with no decision; a gap without an answer counts as a
+   regression) is proven by tests, not seen in the evaluations.
+7. **The summaries borrow the reader again**: all 24 of the crew's
+   summaries open with *"The release committee"* (decided, approved). Same
+   prompt (`judge.SUMMARY_SYSTEM`), same habit; the memo's decision line,
+   written by code, is the decision.
+
+### Not measured
+
+- CrewAI's hierarchical process (a manager model that assigns the work):
+  not used, since the route must never be the model's.
+- CrewAI's standard route to Ollama (its OpenAI-compatible endpoint), which
+  serves the model with a 4,096-token context and ignores `num_ctx` (checked
+  with a direct request): not evaluated, to keep the model settings equal.
+- A LangGraph version that asks for every gap at once (see point 1).
