@@ -18,7 +18,7 @@ How to read the columns:
   route and the categories are identical / the model's raw output (every
   classification and the summary) is identical byte for byte.
 
-## 2026-11-09, run 1: smoke, 1 repetition (commit 46b4e51)
+## 2026-11-09, run 1: smoke, 1 repetition (commit 883658a)
 
 | Campaign | Expected | Route | Gaps right |
 |---|---|---|---|
@@ -61,7 +61,7 @@ The comparison moved to the code: the prompt now says `size: SMALL` or
 `size: LARGE`, computed with the same threshold as the check that accepts
 noise (`risk.NOISE_MAX_RATIO`). The model no longer compares two numbers.
 
-## 2026-11-09, run 2: 8 campaigns × 3 (commit 72d2728)
+## 2026-11-09, run 2: 8 campaigns × 3 (commit c374340)
 
 | Campaign | Expected | Routes | Gaps right (agent) | Gaps right (model alone) | Same categories | Same text |
 |---|---|---|---|---|---|---|
@@ -118,7 +118,7 @@ were found on these eight campaigns, so the next measure is optimistic: a
 held-out set of campaigns, never looked at while writing the prompt, is the
 honest next step.
 
-## 2026-11-09, run 3: 8 campaigns × 3 (commit 2a68720)
+## 2026-11-09, run 3: 8 campaigns × 3 (commit e970b1a)
 
 | Campaign | Expected | Routes | Gaps right (agent) | Gaps right (model alone) | Same categories | Same text | Seconds (mean) |
 |---|---|---|---|---|---|---|---|
@@ -215,7 +215,7 @@ tuning to the test; left as is.
 
 ## 2026-11-09, after run 3: the number guard, seen from the demo
 
-Not an evaluation, one manual run of `run 4` then `resume` (commit d7ba4d9).
+Not an evaluation, one manual run of `run 4` then `resume` (commit 8c8e134).
 The summary was rejected because it wrote *"scores between 3 and 9 trigger
 manual review"*: 9 is a correct inference (from 3 up to, but not including,
 10), but it is not in the facts, so the guard replaced the paragraph. A
@@ -223,7 +223,7 @@ false positive, on the safe side: the memo lost a sentence, not a fact. The
 rejected text is now kept in the state and in the trace (`rejected_text`),
 never in the memo, so the rejection can be audited.
 
-## 2026-11-09, run 4: LangGraph and CrewAI side by side (commit 4aab8cc)
+## 2026-11-09, run 4: LangGraph and CrewAI side by side (commit f47b42b)
 
 The same agent written twice (see the README, *The same agent with CrewAI*,
 and [docs/langgraph-vs-crewai.md](../docs/langgraph-vs-crewai.md)). Same
