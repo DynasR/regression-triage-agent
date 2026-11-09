@@ -8,8 +8,13 @@ It reads the bank's data only through a read-only
 [MCP](https://modelcontextprotocol.io) server, runs on a local model, and
 never lets the model compute a number or choose the route.
 
+The same agent is also written with [CrewAI](https://github.com/crewAIInc/crewAI),
+on the same data, model and evaluation judge, to compare the two frameworks
+with measurements: [The same agent with CrewAI](#the-same-agent-with-crewai).
+
 *Version française courte : [README.fr.md](README.fr.md). Learning LangGraph
-from this code (in French): [docs/apprendre-langgraph.md](docs/apprendre-langgraph.md).*
+from this code (in French): [docs/apprendre-langgraph.md](docs/apprendre-langgraph.md).
+LangGraph or CrewAI, when and why (in French): [docs/langgraph-vs-crewai.md](docs/langgraph-vs-crewai.md).*
 
 ## Why
 
@@ -200,11 +205,18 @@ campaign; eight campaigns. The ground truth of every planted gap lives in
 ## Proof
 
 ```bash
-pytest                           # no model needed: a fake one answers
-python tools/mutation_check.py   # breaks each deterministic rule on purpose
+pytest                                          # no model needed: a fake one answers
+.venv-crew/bin/python -m pytest tests_crew      # the CrewAI version, fake model too
+python tools/mutation_check.py                  # breaks each deterministic rule on purpose
 ```
 
-**141 tests, all without a model. 40 mutations, 40 caught.** The mutation
+**143 tests for the LangGraph version and 37 for the CrewAI version, all
+without a model. 60 mutations, 60 caught** (42 on the shared parts and the
+LangGraph version, 18 on the CrewAI version: each agent's tools, each tool's
+scopes, the evidence limited to products with a gap, the gap list kept as
+the tool wrote it, an analyst that never calls its tool, an unanswered gap,
+the route, the human answer, the trace of a pause, the model settings,
+telemetry). The mutation
 check removes or weakens one rule at a time and requires a test to turn red:
 the gap SQL (tolerance edge, relative branch, failed values, missing
 tolerance, unknown case, campaign filter), every check on the model's answer,
@@ -261,6 +273,108 @@ on these eight campaigns, so 24/24 is an optimistic measure. A held-out set
 is the next step.
 
 Details, the failures and their causes: [evals/RESULTS.md](evals/RESULTS.md).
+
+## The same agent with CrewAI
+
+To answer *when LangGraph, when CrewAI* with measurements rather than
+opinions, the agent is written a second time with
+[CrewAI](https://github.com/crewAIInc/crewAI) 1.15, in
+[`src/regression_triage/crew/`](src/regression_triage/crew). Only the
+orchestration changes: the MCP gateway and its scopes, the gaps, the checks
+on the model's answers, the score, the route and the memo are the same code.
+
+```mermaid
+flowchart TD
+    subgraph F[CrewAI Flow: the control]
+        T[triage] --> R{route<br/><i>@router, code</i>}
+        R -->|go, block| D[decided by the rules]
+        R -->|human_review| H[ask_reviewer<br/><i>@human_feedback: pause, state saved</i>]
+        H --> A{record_answer<br/><i>JSON read by code</i>}
+        A -->|invalid| H
+        A -->|valid| M
+        D --> M[report]
+    end
+    subgraph C1[Triage crew, sequential]
+        GA[Gap analyst] -- only tool --> TG[[campaign_gaps<br/>no argument, result as answer]]
+        EM[Evidence matcher] -- only tool --> TE[[evidence<br/>one product with a gap]]
+    end
+    subgraph C2[Memo crew]
+        RM[Release manager<br/><i>no tool</i>]
+    end
+    T -.runs.-> C1
+    M -.runs.-> C2
+    TG -- "scopes load_campaign, compute_gaps" --> S[(readonly-sql-mcp)]
+    TE -- "scope classify_gaps" --> S
+```
+
+| Agent | Tool | Gateway scopes |
+|---|---|---|
+| Gap analyst | `campaign_gaps` (bound to the campaign: no argument) | `load_campaign`, `compute_gaps` |
+| Evidence matcher | `evidence` (only a product that has a gap) | `classify_gaps` |
+| Release manager | none | none |
+
+Two locks, both pinned by tests and broken on purpose by the mutation
+check: an agent has only its tool (`AGENT_TOOLS`), and a tool sees the bank
+only through its scopes (`TOOL_SCOPES`). Process: sequential; the
+hierarchical process would add a manager model that picks the next agent,
+and the model must never choose the path.
+
+**Results, same model, data, settings and judge** (8 campaigns × 3,
+[evals/RESULTS.md](evals/RESULTS.md), run 4):
+
+| | LangGraph | CrewAI |
+|---|---|---|
+| Routes right | 24/24 | 24/24 |
+| Gaps right (category and justification) | 60/66 | **66/66** |
+| Categories and route stable across repetitions | 8/8 | 8/8 |
+| Model calls | 90 | 90 |
+| Tokens in | 43,323 | **88,206** |
+| Wall time | 172 s | 231 s |
+
+The crew classified the two gaps the graph gets wrong, but the two
+versions do not ask the same question: the graph asks one gap at a time
+with the evidence chosen by code; the crew's matcher gets every gap at
+once and fetches the evidence itself. Which difference fixes the two gaps
+is not established; it is not evidence that the framework is better.
+
+**What CrewAI made easy:** roles and tools, the model calling the evidence
+tool on its own (several products in one message), `result_as_answer`,
+`ConditionalTask`, `output_pydantic`, and a human pause that survives the
+process (`@human_feedback` with an asynchronous provider, SQLite
+persistence, `from_pending(...).resume(...)`).
+
+**What it made hard, all met in practice:**
+- `crewai 1.15.39` pins `mcp<2`; this project and readonly-sql-mcp use mcp 2.
+  Separate environment (`.venv-crew`, 898 MB and 145 packages against
+  129 MB and 69), an mcp 1 client adapter, the server run with the other
+  environment's interpreter. Hence no `[crew]` extra: `requirements-crew.txt`.
+- CrewAI reaches Ollama through its OpenAI-compatible endpoint, which
+  ignores `num_ctx` (4,096-token context, checked) and thinks by default. A
+  `BaseLLM` subclass calls the native API with the LangGraph judge's options.
+- Telemetry is on by default; forced off, and tested.
+- A crew cannot branch or wait: routing and the human pause need a Flow,
+  a second layer that is a graph in all but name.
+- `resume()` takes a string only; the answer travels as JSON, read by code.
+  CrewAI can turn a free-text answer into an outcome with a model
+  (`emit=`): not used, the model never reads the human's decision (tested).
+  The crew-level option, `Task(human_input=True)`, blocks on `input()` and
+  sends the human's words to the model to rewrite its answer: not used.
+- CrewAI tools are synchronous, the MCP session asynchronous: the session
+  runs on its own thread.
+
+```bash
+python -m venv .venv-crew
+.venv-crew/bin/pip install -r requirements-crew.txt && .venv-crew/bin/pip install --no-deps -e .
+.venv-crew/bin/python -m regression_triage.crew run 4 --no-input     # Windows: .venv-crew\Scripts\python
+.venv-crew/bin/python -m regression_triage.crew resume <thread> --decision block --reviewer "Your Name"
+.venv-crew/bin/python -m pytest tests_crew                            # no model needed
+.venv-crew/bin/python evals/run_evals.py --engine crew --reps 3
+```
+
+The trace keeps the same shape: one JSON line per step (`tool:…`,
+`task:…`, `check_and_score`, `human_review` interrupted then ok, `report`),
+with time and tokens. When to choose which, in French:
+[docs/langgraph-vs-crewai.md](docs/langgraph-vs-crewai.md).
 
 ## What it does not do
 

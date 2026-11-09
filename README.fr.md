@@ -78,3 +78,47 @@ il vérifie qu'une citation existe, est ouverte et porte sur le bon produit,
 pas de quelle métrique parle un ticket en texte libre. La première campagne
 faisait 5/8 ; les deux corrections sont des règles générales, mais trouvées
 sur ces huit campagnes : 24/24 est donc une mesure optimiste.
+
+## Le même agent avec CrewAI
+
+Pour dire **quand choisir LangGraph et quand choisir CrewAI**, chiffres à
+l'appui, l'agent est écrit une seconde fois avec CrewAI
+(`src/regression_triage/crew/`). Seule l'orchestration change : passerelle
+MCP, écarts, contrôles, score, chemin et mémo sont le même code.
+
+```mermaid
+flowchart LR
+    subgraph LG[LangGraph : un graphe]
+        direction TB
+        a[code : écarts] --> b[modèle : 1 écart par appel] --> c{code : score}
+        c -->|3 à 9| d[interrupt]
+        c --> e[report]
+        d --> e
+    end
+    subgraph CR[CrewAI : un Flow et des crews]
+        direction TB
+        f[analyste : outil campaign_gaps] --> g[rapprocheur : outil evidence<br/>tous les écarts d'un coup] --> h{code : score<br/>@router}
+        h -->|3 à 9| i["@human_feedback"]
+        h --> j[responsable : synthèse]
+        i --> j
+    end
+```
+
+Même modèle, mêmes réglages, mêmes données, même juge, 8 campagnes × 3 :
+
+| | LangGraph | CrewAI |
+|---|---|---|
+| Décisions justes | 24/24 | 24/24 |
+| Écarts justes (catégorie et justification) | 60/66 | **66/66** |
+| Tokens lus par le modèle | 43 323 | **88 206** |
+| Durée | 172 s | 231 s |
+
+CrewAI classe mieux ici, mais sa version pose la question autrement (tous
+les écarts d'un coup) : rien ne montre que le mérite revient au framework,
+la cause n'est pas établie. Il a demandé : un
+environnement séparé (`crewai` exige `mcp<2`), son propre branchement à
+Ollama (sa route standard plafonne le contexte à 4 096 tokens), la
+télémétrie coupée de force, et un **Flow** pour router et attendre un
+humain. Le détail, la table « je choisis LangGraph quand… / CrewAI
+quand… » et la phrase pour l'entretien :
+[docs/langgraph-vs-crewai.md](docs/langgraph-vs-crewai.md).
