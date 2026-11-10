@@ -29,6 +29,8 @@ CREW = "src/regression_triage/crew/"
 CREW_INIT, CREW_CREW, CREW_FLOW = CREW + "__init__.py", CREW + "crew.py", CREW + "flow.py"
 CREW_LLM, CREW_TOOLS = CREW + "llm.py", CREW + "tools.py"
 CREW_TESTS = "tests_crew/"
+SPEC_TESTS, SPEC_TESTS_TESTS = "src/regression_triage/spec_tests/", "tests/test_spec_tests.py"
+DESK_CONNECTOR, DESK_AGENT = "src/regression_triage/desktop/connector.py", "src/regression_triage/desktop/agent.py"
 
 # (what is broken, file, original text, mutated text, test file that must fail)
 MUTATIONS = [
@@ -192,6 +194,74 @@ MUTATIONS = [
     ("crew: telemetry left to the shell", CREW_INIT,
      "os.environ.update(TELEMETRY_OFF)", "[os.environ.setdefault(k, v) for k, v in TELEMETRY_OFF.items()]",
      CREW_TESTS + "test_crew_llm.py"),
+
+    # Robot Framework suite.
+    ("robot: the route of the score is ignored", GRAPH,
+     'return state["risk"]["route"]', 'return "go"', "tests/test_robot_suite.py"),
+    ("robot: a known defect weighs nothing", RISK,
+     '"known_defect": 1,', '"known_defect": 0,', "tests/test_robot_suite.py"),
+    ("robot: the gaps are never classified", GRAPH,
+     'return "classify_gaps" if state["gaps"] else "score_risk"', 'return "score_risk"', "tests/test_robot_suite.py"),
+    ("robot: relative tolerance ignored", CAMPAIGN,
+     '_TOLERANCE = "max(coalesce(t.abs_tol, 0), coalesce(t.rel_tol, 0) * abs(r.reference_value))"',
+     '_TOLERANCE = "coalesce(t.abs_tol, 0)"', "tests/test_robot_suite.py"),
+    ("robot: the write check lets anything through", "src/regression_triage/robot_keywords.py",
+     'bad = [(node, tool) for node, tool in result["calls"] if tool != "query" or node not in SCOPES]',
+     "bad = []", "tests/test_robot_suite.py"),
+
+    # Spec to test cases: the model proposes, the code checks.
+    ("spec tests: an invented rule is read as the first rule", SPEC_TESTS + "check.py",
+     "rule = spec.rule(rule_id) if rule_id else None", "rule = spec.rule(rule_id) or spec.rules[0] if rule_id else None",
+     SPEC_TESTS_TESTS),
+    ("spec tests: invented numbers not checked", SPEC_TESTS + "check.py",
+     "invented = sorted(_numbers_of(case) - allowed)", "invented = []", SPEC_TESTS_TESTS),
+    ("spec tests: an outcome that contradicts the bound is kept", SPEC_TESTS + "check.py",
+     "        if named != right:\n", "        if False:\n", SPEC_TESTS_TESTS),
+    ("spec tests: a strict bound tested on the wrong side", SPEC_TESTS + "bounds.py",
+     'beyond = {"<=": s + step, ">=": s - step, "<": s - step, ">": s + step}[bound.op]',
+     'beyond = {"<=": s + step, ">=": s - step, "<": s + step, ">": s - step}[bound.op]', SPEC_TESTS_TESTS),
+    ("spec tests: ties to even rounded up", SPEC_TESTS + "spec.py",
+     '"demi-pair": ROUND_HALF_EVEN}', '"demi-pair": ROUND_HALF_UP}', SPEC_TESTS_TESTS),
+    ("spec tests: an absolute bound ignores the sign", SPEC_TESTS + "spec.py",
+     "x = abs(x) if self.absolute else x", "x = x", SPEC_TESTS_TESTS),
+    ("spec tests: a missing boundary point is not written by the code", SPEC_TESTS + "check.py",
+     "                added.append(_template(spec, rule, point))\n", "                pass\n", SPEC_TESTS_TESTS),
+    ("spec tests: a rule nobody covered is not signalled", SPEC_TESTS + "check.py",
+     "        if not mine and not added:\n", "        if False:\n", SPEC_TESTS_TESTS),
+
+    # The desktop agent: only its own window, only the listed actions, read back.
+    ("desktop: an action outside the list is allowed", DESK_CONNECTOR,
+     "    if (action, control) not in ALLOWED:\n", "    if False:\n", "tests/test_desktop.py"),
+    ("desktop: the list of actions is widened", DESK_CONNECTOR,
+     '"status": Control(CONTROL_IDS["status"], "label", frozenset({"read"})),',
+     '"status": Control(CONTROL_IDS["status"], "label", frozenset({"read", "type"})),', "tests/test_desktop.py"),
+    ("desktop: a process it did not start can be attached", DESK_CONNECTOR,
+     "if self.process is None or pid != self.process.pid or self.process.poll() is not None:",
+     "if self.process is None:", "tests/test_desktop.py"),
+    ("desktop: the application left open on the way out", DESK_CONNECTOR,
+     "    def __exit__(self, *exc) -> None:\n        self.close()\n",
+     "    def __exit__(self, *exc) -> None:\n        pass\n", "tests/test_desktop.py"),
+    ("desktop: an application that does not close is not killed", DESK_CONNECTOR,
+     "                    self.process.kill()\n", "", "tests/test_desktop.py"),
+    ("desktop agent: no retry", DESK_AGENT,
+     "ATTEMPTS = 2   # the first, and one retry", "ATTEMPTS = 1   # the first, and one retry", "tests/test_desktop.py"),
+    ("desktop agent: the status not read back", DESK_AGENT,
+     "for name in expected if shown[name] != expected[name]}",
+     'for name in ("decision", "comment") if shown[name] != expected[name]}', "tests/test_desktop.py"),
+    ("desktop agent: a read-back gap is not a failure", DESK_AGENT,
+     '    raise ReadbackMismatch(f"after',
+     '    return {**shown, "attempts": ATTEMPTS}\n    raise ReadbackMismatch(f"after', "tests/test_desktop.py"),
+
+    # Scale: the gap SQL, the cut results, the thresholds on synthetic campaigns.
+    ("gaps at scale: a gap up to twice the tolerance is not a gap", CAMPAIGN,
+     "OR abs(r.candidate_value - r.reference_value) > {_TOLERANCE}",
+     "OR abs(r.candidate_value - r.reference_value) > 2 * {_TOLERANCE}", "tests/test_scale.py"),
+    ("scale: the server's cut result is not refused", GATEWAY,
+     'if out["truncated"]:', "if False:", "tests/test_scale.py"),
+    ("scale: block threshold off by one", RISK,
+     "BLOCK_FROM = 10 ", "BLOCK_FROM = 11 ", "tests/test_scale.py"),
+    ("scale: a large gap can be noise, whatever its size", RISK,
+     "NOISE_MAX_RATIO = 5.0 ", "NOISE_MAX_RATIO = 1e9 ", "tests/test_scale.py"),
 ]
 
 CREW_PYTHON = next((p for p in (ROOT / ".venv-crew" / "Scripts" / "python.exe", ROOT / ".venv-crew" / "bin" / "python")

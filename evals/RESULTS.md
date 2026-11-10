@@ -211,7 +211,7 @@ tuning to the test; left as is.
 - A held-out set of campaigns, written without looking at the prompt.
 - Another model (a larger local one, or a hosted one for comparison) on the
   same campaigns: `--model` exists, the comparison has not been run.
-- Campaigns with hundreds of gaps (the server's 200-row cap stops the run).
+- Campaigns with hundreds of gaps: measured without the model in [SCALE_RESULTS.md](SCALE_RESULTS.md) (the server's 200-row cap stops a run of 201 gaps or more).
 
 ## 2026-11-09, after run 3: the number guard, seen from the demo
 

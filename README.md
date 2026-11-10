@@ -1,5 +1,7 @@
 # regression-triage-agent
 
+[![CI](https://github.com/DynasR/regression-triage-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/DynasR/regression-triage-agent/actions/workflows/ci.yml)
+
 A [LangGraph](https://github.com/langchain-ai/langgraph) agent that triages a
 non-regression campaign of a bank's pricing library and decides: **ship**,
 **block**, or **ask a human**.
@@ -210,9 +212,11 @@ pytest                                          # no model needed: a fake one an
 python tools/mutation_check.py                  # breaks each deterministic rule on purpose
 ```
 
-**143 tests for the LangGraph version and 37 for the CrewAI version, all
-without a model. 60 mutations, 60 caught** (42 on the shared parts and the
-LangGraph version, 18 on the CrewAI version: each agent's tools, each tool's
+**233 tests for the LangGraph version and its test-automation pieces, and 37
+for the CrewAI version, all without a model** (8 more desktop tests open a
+window and run only with `RUN_GUI_TESTS=1`). **85 mutations, 85 caught** (67 on
+the shared parts, the LangGraph version, Robot Framework, the spec-to-tests
+checks, the desktop agent and the scale tests, 18 on the CrewAI version: each agent's tools, each tool's
 scopes, the evidence limited to products with a gap, the gap list kept as
 the tool wrote it, an analyst that never calls its tool, an unanswered gap,
 the route, the human answer, the trace of a pause, the model settings,
@@ -375,6 +379,19 @@ The trace keeps the same shape: one JSON line per step (`tool:…`,
 `task:…`, `check_and_score`, `human_review` interrupted then ok, `report`),
 with time and tokens. When to choose which, in French:
 [docs/langgraph-vs-crewai.md](docs/langgraph-vs-crewai.md).
+
+## Beyond triage: test automation
+
+Four pieces around the same agent, each with its tests, its mutations and a
+guide in French.
+
+**Robot Framework and Xray.** `robot/triage.robot` drives the real agent from Robot Framework: one test per campaign checks the route, the decision, the gaps per category against the ground truth kept out of the database, and that no write was attempted. The judge is a Robot variable (`JUDGE:fake` needs no model, `JUDGE:ollama` uses the local one). `python tools/robot_xray.py` runs it and keeps `output.xml` (Xray's native Robot import), `xunit.xml` (JUnit import) and `log.html` in `runs/robot/`. Nothing is sent to Jira or Xray. See [docs/robot-framework-et-xray.md](docs/robot-framework-et-xray.md).
+
+**From a functional spec to a test book.** The same split, on another job: a local model writes test cases from a functional specification (`specs/`, four short fictional ones in French), and the code checks every case. The code reads the rules and their ids, computes each bound's two boundary points and the outcome at each, and rejects a case that cites an unknown rule, holds a number nobody wrote or computed, or contradicts the computed outcome. A rejected case is kept with its reason. The code writes the boundary points the model missed from a template, and signals the rules nobody covered to a human. Output: a JSON test book and a CSV for Xray's Test Case Importer (no API called). Measured on 4 specs x 3 runs, identical across runs: 79 % of the hand-written must-cover cases written by the model alone, 91 % after the code. The price is measured too: of 39 cases refused for an invented number, 3 were wrong. `python -m regression_triage.spec_tests specs/tolerance-ecarts-pv.md --judge ollama`; details in [docs/specs-vers-cas-de-test.md](docs/specs-vers-cas-de-test.md) and [evals/SPEC_TESTS_RESULTS.md](evals/SPEC_TESTS_RESULTS.md).
+
+**Desktop agent.** The triage's decision can also be carried into a Windows desktop application ([`src/regression_triage/desktop/`](src/regression_triage/desktop), in French: [docs/agent-desktop.md](docs/agent-desktop.md)). The connector drives only the process it started, found by its PID, never by a window title. It has three actions on named controls (read, type into a field, click a button); anything else is refused by code and traced. It never touches the user's keyboard or mouse: messages go to the control itself. After validating, the agent reads the screen back, retries once on a gap, then fails cleanly, and the application is closed even on error. The plan is fixed in code; the model chooses nothing. `python -m regression_triage.desktop 7`. Real interface tests run only with `RUN_GUI_TESTS=1`, off screen; the module's mutations are caught without them. The demo application uses native Win32 controls, because Tk 8.6 exposes no names or values to UI Automation. Not tested on a real WinDev application.
+
+**Continuous integration and scale.** Every push runs the tests, the mutation check and the CrewAI version in its own environment, with no secret and no model: every test uses a fake judge. The deterministic parts were also measured on synthetic campaigns: 5,000 gaps are triaged in 0.4 s, so the model is the bottleneck, and the real wall is the MCP server's 200-row limit, which stops a campaign of 201 gaps or more. Details: [docs/ci-et-charge.md](docs/ci-et-charge.md) (in French) and [evals/SCALE_RESULTS.md](evals/SCALE_RESULTS.md).
 
 ## What it does not do
 
