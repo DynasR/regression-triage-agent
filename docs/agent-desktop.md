@@ -39,7 +39,7 @@ d'interface ; la commande entière, avec le vrai modèle, n'a pas encore été
 lancée (section 9).
 
 ```powershell
-cd "Z:\Dynas Code\Dynas\labo\regression-triage-agent"; $env:PYTHONPATH="src"; .venv\Scripts\python -m regression_triage.desktop 7 --hold 3
+cd regression-triage-agent; $env:PYTHONPATH="src"; .venv\Scripts\python -m regression_triage.desktop 7 --hold 3
 ```
 
 1. Le tri tourne comme `run 7 --no-input` : deux régressions de vega, la
@@ -207,12 +207,12 @@ bouton de barre des tâches, affichée sans prendre le focus). pywinauto la
 pilote là comme ailleurs : elle reste une fenêtre visible pour Windows.
 
 ```powershell
-cd "Z:\Dynas Code\Dynas\labo\regression-triage-agent"; .venv\Scripts\python -m pytest -q tests/test_desktop.py
-cd "Z:\Dynas Code\Dynas\labo\regression-triage-agent"; $env:RUN_GUI_TESTS="1"; .venv\Scripts\python -m pytest -q tests/test_desktop.py; Remove-Item Env:RUN_GUI_TESTS
-cd "Z:\Dynas Code\Dynas\labo\regression-triage-agent"; $env:PYTHONPATH="src"; .venv\Scripts\python -m regression_triage demo
-cd "Z:\Dynas Code\Dynas\labo\regression-triage-agent"; $env:PYTHONPATH="src"; .venv\Scripts\python -m regression_triage.desktop 7 --hold 3
-cd "Z:\Dynas Code\Dynas\labo\regression-triage-agent"; $env:PYTHONPATH="src"; .venv\Scripts\python -m regression_triage.desktop 4 --backend uia
-cd "Z:\Dynas Code\Dynas\labo\regression-triage-agent"; .venv\Scripts\python src\regression_triage\desktop\demo_app.py --campaign 4 --gaps 2
+cd regression-triage-agent; .venv\Scripts\python -m pytest -q tests/test_desktop.py
+cd regression-triage-agent; $env:RUN_GUI_TESTS="1"; .venv\Scripts\python -m pytest -q tests/test_desktop.py; Remove-Item Env:RUN_GUI_TESTS
+cd regression-triage-agent; $env:PYTHONPATH="src"; .venv\Scripts\python -m regression_triage demo
+cd regression-triage-agent; $env:PYTHONPATH="src"; .venv\Scripts\python -m regression_triage.desktop 7 --hold 3
+cd regression-triage-agent; $env:PYTHONPATH="src"; .venv\Scripts\python -m regression_triage.desktop 4 --backend uia
+cd regression-triage-agent; .venv\Scripts\python src\regression_triage\desktop\demo_app.py --campaign 4 --gaps 2
 ```
 
 La dernière ouvre l'application seule, pour la regarder. Code de sortie

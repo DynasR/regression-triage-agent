@@ -97,12 +97,12 @@ la mesure était le sujet.
 ## 3. Commandes (PowerShell)
 
 ```powershell
-cd "Z:\Dynas Code\Dynas\labo\regression-triage-agent"; .\.venv\Scripts\python.exe -m pytest -q
-cd "Z:\Dynas Code\Dynas\labo\regression-triage-agent"; .\.venv\Scripts\python.exe -m pytest -q tests/test_scale.py
-cd "Z:\Dynas Code\Dynas\labo\regression-triage-agent"; .\.venv\Scripts\python.exe tools/bench.py
-cd "Z:\Dynas Code\Dynas\labo\regression-triage-agent"; .\.venv\Scripts\python.exe tools/bench.py --sizes 200 1000 5000 20000 --max-rows 100000
-cd "Z:\Dynas Code\Dynas\labo\regression-triage-agent"; .\.venv\Scripts\python.exe tools/synthetic_campaign.py demo\synthetic.db 1000 mixed
-cd "Z:\Dynas Code\Dynas\labo\regression-triage-agent"; .\.venv\Scripts\python.exe tools/mutation_check.py
+cd regression-triage-agent; .\.venv\Scripts\python.exe -m pytest -q
+cd regression-triage-agent; .\.venv\Scripts\python.exe -m pytest -q tests/test_scale.py
+cd regression-triage-agent; .\.venv\Scripts\python.exe tools/bench.py
+cd regression-triage-agent; .\.venv\Scripts\python.exe tools/bench.py --sizes 200 1000 5000 20000 --max-rows 100000
+cd regression-triage-agent; .\.venv\Scripts\python.exe tools/synthetic_campaign.py demo\synthetic.db 1000 mixed
+cd regression-triage-agent; .\.venv\Scripts\python.exe tools/mutation_check.py
 ```
 
 (Le chemin est celui du dépôt une fois cette branche intégrée.) Le premier

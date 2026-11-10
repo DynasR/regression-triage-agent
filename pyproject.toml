@@ -16,7 +16,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=9", "anyio>=4"]
+dev = ["pytest>=9", "anyio>=4", "robotframework>=7.5,<8", "pywinauto>=0.6.9,<0.7; sys_platform == 'win32'"]
 # No "crew" extra: crewai 1.15 pins mcp<2, the dependencies above need mcp 2.
 # The CrewAI version has its own environment: see requirements-crew.txt.
 

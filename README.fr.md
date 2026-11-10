@@ -122,3 +122,10 @@ télémétrie coupée de force, et un **Flow** pour router et attendre un
 humain. Le détail, la table « je choisis LangGraph quand… / CrewAI
 quand… » et la phrase pour l'entretien :
 [docs/langgraph-vs-crewai.md](docs/langgraph-vs-crewai.md).
+
+## Au-delà du tri : l'automatisation des tests
+
+- **Robot Framework** pilote l'agent : `python tools/robot_xray.py` lance 8 tests (un par campagne), produit `output.xml`, `xunit.xml` et `log.html` pour un import Xray (non essayé). Voir [docs/robot-framework-et-xray.md](docs/robot-framework-et-xray.md).
+- **D'une spécification fonctionnelle à un cahier de tests** : le modèle propose les cas, le code lit les règles, calcule les limites, refuse ce qu'il ne peut pas tracer, complète, et exporte au format Xray. Voir [docs/specs-vers-cas-de-test.md](docs/specs-vers-cas-de-test.md).
+- **Agent desktop** : la décision du tri est saisie dans une application Windows qu'il a lancée lui-même et qu'il retrouve par son PID. Il n'a que trois gestes sur une liste blanche, relit l'écran et réessaie une fois. Non testé sur une vraie application WinDev. Voir [docs/agent-desktop.md](docs/agent-desktop.md).
+- **CI GitHub Actions** (tests, mutations, version CrewAI) et **test de charge** : 5 000 écarts en 0,4 s hors modèle ; le goulot est le modèle, et la limite de 200 lignes du serveur MCP. Voir [docs/ci-et-charge.md](docs/ci-et-charge.md).

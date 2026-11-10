@@ -38,20 +38,20 @@ Le venv est partagé avec le dépôt principal ; adapter le chemin si besoin.
 
 ```powershell
 # La suite complète, faux juge (aucun modèle), environ 10 s
-cd "Z:\Dynas Code\Dynas\labo\rta-kb-robot"; $env:PYTHONPATH = "src"; & "Z:\Dynas Code\Dynas\labo\regression-triage-agent\.venv\Scripts\python.exe" tools\robot_xray.py
+cd regression-triage-agent; $env:PYTHONPATH = "src"; .venv\Scripts\python tools\robot_xray.py
 
 # Une seule campagne, ou une seule route
-cd "Z:\Dynas Code\Dynas\labo\rta-kb-robot"; $env:PYTHONPATH = "src"; & "Z:\Dynas Code\Dynas\labo\regression-triage-agent\.venv\Scripts\python.exe" tools\robot_xray.py --test "Campaign 3*"
-cd "Z:\Dynas Code\Dynas\labo\rta-kb-robot"; $env:PYTHONPATH = "src"; & "Z:\Dynas Code\Dynas\labo\regression-triage-agent\.venv\Scripts\python.exe" tools\robot_xray.py --include route-block
+cd regression-triage-agent; $env:PYTHONPATH = "src"; .venv\Scripts\python tools\robot_xray.py --test "Campaign 3*"
+cd regression-triage-agent; $env:PYTHONPATH = "src"; .venv\Scripts\python tools\robot_xray.py --include route-block
 
 # Avec le vrai modèle (Ollama lancé, qwen3.5:9b), lent
-cd "Z:\Dynas Code\Dynas\labo\rta-kb-robot"; $env:PYTHONPATH = "src"; & "Z:\Dynas Code\Dynas\labo\regression-triage-agent\.venv\Scripts\python.exe" tools\robot_xray.py --judge ollama
+cd regression-triage-agent; $env:PYTHONPATH = "src"; .venv\Scripts\python tools\robot_xray.py --judge ollama
 
 # Voir Robot échouer : fausser la décision attendue de la campagne 3
-cd "Z:\Dynas Code\Dynas\labo\rta-kb-robot"; $env:PYTHONPATH = "src"; & "Z:\Dynas Code\Dynas\labo\regression-triage-agent\.venv\Scripts\python.exe" tools\robot_xray.py --variable EXPECTED_3:block
+cd regression-triage-agent; $env:PYTHONPATH = "src"; .venv\Scripts\python tools\robot_xray.py --variable EXPECTED_3:block
 
 # Les tests pytest
-cd "Z:\Dynas Code\Dynas\labo\rta-kb-robot"; & "Z:\Dynas Code\Dynas\labo\regression-triage-agent\.venv\Scripts\python.exe" -m pytest -q tests\test_robot_suite.py
+cd regression-triage-agent; .venv\Scripts\python -m pytest -q tests\test_robot_suite.py
 ```
 
 Le log lisible est `runs\robot\log.html`.

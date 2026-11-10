@@ -161,19 +161,19 @@ absolue, un mi-chemin impair en arrondi bancaire). Ni le modèle ni le paquet
 Sans modèle : le code écrit seul ce qu'il sait calculer, et signale le reste.
 
 ```powershell
-cd "Z:\Dynas Code\Dynas\labo\regression-triage-agent"; $env:PYTHONPATH = "src"; .venv\Scripts\python -m regression_triage.spec_tests specs\tolerance-ecarts-pv.md --judge fake
+cd regression-triage-agent; $env:PYTHONPATH = "src"; .venv\Scripts\python -m regression_triage.spec_tests specs\tolerance-ecarts-pv.md --judge fake
 ```
 
 Avec le modèle local (Ollama doit tourner, `qwen3.5:9b` installé) :
 
 ```powershell
-cd "Z:\Dynas Code\Dynas\labo\regression-triage-agent"; $env:PYTHONPATH = "src"; .venv\Scripts\python -m regression_triage.spec_tests specs\tolerance-ecarts-pv.md --judge ollama
+cd regression-triage-agent; $env:PYTHONPATH = "src"; .venv\Scripts\python -m regression_triage.spec_tests specs\tolerance-ecarts-pv.md --judge ollama
 ```
 
 Sans donner au modèle les valeurs calculées par le code :
 
 ```powershell
-cd "Z:\Dynas Code\Dynas\labo\regression-triage-agent"; $env:PYTHONPATH = "src"; .venv\Scripts\python -m regression_triage.spec_tests specs\arrondi-montants.md --judge ollama --no-values
+cd regression-triage-agent; $env:PYTHONPATH = "src"; .venv\Scripts\python -m regression_triage.spec_tests specs\arrondi-montants.md --judge ollama --no-values
 ```
 
 Sortie : `runs\spec-tests\<SPEC>.cahier.json` et `runs\spec-tests\<SPEC>.xray.csv`.
@@ -183,11 +183,11 @@ Code de sortie : 0 toutes les règles couvertes, 1 spécification illisible,
 Les tests (sans modèle) et l'évaluation (avec le modèle) :
 
 ```powershell
-cd "Z:\Dynas Code\Dynas\labo\regression-triage-agent"; .venv\Scripts\python -m pytest tests\test_spec_tests.py -q
+cd regression-triage-agent; .venv\Scripts\python -m pytest tests\test_spec_tests.py -q
 ```
 
 ```powershell
-cd "Z:\Dynas Code\Dynas\labo\regression-triage-agent"; .venv\Scripts\python evals\spec_tests_eval.py --reps 3
+cd regression-triage-agent; .venv\Scripts\python evals\spec_tests_eval.py --reps 3
 ```
 
 ### L'export Xray
