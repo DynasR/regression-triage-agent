@@ -215,7 +215,7 @@ tuning to the test; left as is.
 
 ## 2026-11-09, after run 3: the number guard, seen from the demo
 
-Not an evaluation, one manual run of `run 4` then `resume` (commit 8c8e134).
+Not an evaluation, one manual run of `run 4` then `resume` (commit 10a210e).
 The summary was rejected because it wrote *"scores between 3 and 9 trigger
 manual review"*: 9 is a correct inference (from 3 up to, but not including,
 10), but it is not in the facts, so the guard replaced the paragraph. A
@@ -223,7 +223,7 @@ false positive, on the safe side: the memo lost a sentence, not a fact. The
 rejected text is now kept in the state and in the trace (`rejected_text`),
 never in the memo, so the rejection can be audited.
 
-## 2026-11-09, run 4: LangGraph and CrewAI side by side (commit f47b42b)
+## 2026-11-09, run 4: LangGraph and CrewAI side by side (commit d0dff92)
 
 The same agent written twice (see the README, *The same agent with CrewAI*). Same
 data, same MCP server, same model and settings (`qwen3.5:9b`, temperature 0,
