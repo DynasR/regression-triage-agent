@@ -225,8 +225,7 @@ never in the memo, so the rejection can be audited.
 
 ## 2026-11-09, run 4: LangGraph and CrewAI side by side (commit f47b42b)
 
-The same agent written twice (see the README, *The same agent with CrewAI*,
-and [docs/langgraph-vs-crewai.md](../docs/langgraph-vs-crewai.md)). Same
+The same agent written twice (see the README, *The same agent with CrewAI*). Same
 data, same MCP server, same model and settings (`qwen3.5:9b`, temperature 0,
 seed 42, thinking off, 8,192-token context: the CrewAI version calls Ollama
 through a `BaseLLM` subclass with the very options of the LangGraph judge),

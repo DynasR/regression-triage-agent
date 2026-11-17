@@ -7,7 +7,7 @@ decisions, in its own words: LIVRER, BLOQUER, REVUE HUMAINE.
 Native Win32 controls (EDIT, BUTTON, STATIC), created with ctypes from the
 standard library, each with a fixed control id. Not tkinter: Tk 8.6 draws its
 own widgets, and neither UI Automation nor the win32 API sees their names,
-their text or their values (measured; see docs/agent-desktop.md). A native
+their text or their values (measured). A native
 control is what pywinauto reads best, and what an application built with
 WinDev or the Win32 API looks like from outside.
 

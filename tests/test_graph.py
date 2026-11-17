@@ -138,7 +138,7 @@ async def test_one_trace_line_per_node_with_time_and_tokens(bank_db, tmp_path):
 
 
 def test_the_graph_has_exactly_these_edges():
-    # The diagrams of the README and of docs/apprendre-langgraph.md draw this list.
+    # The diagrams of the README draw this list.
     from regression_triage.graph import build_graph
     edges = {(e.source, e.target, e.conditional) for e in build_graph(None, None).get_graph().edges}
     assert edges == {

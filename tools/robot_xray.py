@@ -5,8 +5,7 @@ Robot writes three files, here in runs/robot/ (a folder git ignores):
   xunit.xml   the same result as JUnit XML: the file for Xray's JUnit import
   log.html    the readable log, for a human
 
-Nothing is sent anywhere: no Jira, no Xray. See docs/robot-framework-et-xray.md
-for how to import the files by hand.
+Nothing is sent anywhere: no Jira, no Xray. Import the files by hand.
 
 Usage: python tools/robot_xray.py                    fake judge, no model needed
        python tools/robot_xray.py --judge ollama     the real local model (slow)

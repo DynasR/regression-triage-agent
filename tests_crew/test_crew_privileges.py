@@ -10,7 +10,7 @@ from regression_triage.gateway import AccessDenied
 
 
 def test_the_agents_and_their_tools_are_exactly_these():
-    # The README and docs/langgraph-vs-crewai.md draw this table.
+    # The README draws this table.
     assert AGENT_TOOLS == {"gap_analyst": ("campaign_gaps",), "evidence_matcher": ("evidence",),
                            "release_manager": ()}
     assert TOOL_SCOPES == {"campaign_gaps": frozenset({"load_campaign", "compute_gaps"}),
